@@ -51,7 +51,8 @@ export async function build(app) {
   const LS = String.fromCharCode(0x2028), PS = String.fromCharCode(0x2029);
   const json = JSON.stringify(data).split("<").join("\\u003c").split(LS).join("\\u2028").split(PS).join("\\u2029");
   const shell = readFileSync(join(ENGINE, "shell.html"), "utf8").split("__NAME__").join(cfg.name);
-  const html = (cfg.headHtml || "") + shell.split("/*__DATA__*/").join(`const ATLAS = ${json};`);
+  const figma = readFileSync(join(ENGINE, "figma-export.js"), "utf8");
+  const html = (cfg.headHtml || "") + shell.split("/*__FIGMA__*/").join(figma).split("/*__DATA__*/").join(`const ATLAS = ${json};`);
   writeFileSync(join(out, "atlas.artifact.html"), html);
   writeFileSync(join(out, "atlas.html"), `<!doctype html><html lang="${cfg.lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>${html}</body></html>`);
   const mb = html.length / 1024 / 1024;

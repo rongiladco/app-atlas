@@ -77,6 +77,14 @@ input[type=search]{font:inherit;color:inherit;background:var(--panel-2);border:1
 .fr .scrolls{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font:11px var(--mono);padding:3px 7px;border-radius:99px;pointer-events:none}
 .fr .cap .insp{flex:none;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;min-height:0;padding:0 7px;font-size:13px;line-height:20px;cursor:pointer}
 
+.panel .hb{display:flex;gap:6px;flex:none}
+#toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);max-width:min(560px,92vw);background:var(--ink);color:var(--ws);padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:50}
+#toast.show{opacity:1;transform:translate(-50%,0)}#toast.bad{background:#a12a1d;color:#fff}
+#cdlg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:60}
+#cdlg .card{background:var(--panel);color:var(--ink);padding:16px;border-radius:10px;width:min(620px,92vw);box-shadow:var(--shadow)}
+#cdlg h3{margin:0 0 6px}#cdlg p{margin:0 0 10px;color:var(--muted);font-size:13px}
+#cdlg textarea{width:100%;height:240px;font:11px var(--mono);background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px}
+#cdlg .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
 /* inspector */
 .panel{position:absolute;right:0;top:0;bottom:0;width:min(440px,100%);background:var(--panel);border-left:1px solid var(--line);box-shadow:var(--shadow);display:grid;grid-template-rows:auto 1fr auto;z-index:5}
 .panel[hidden]{display:none}
@@ -417,7 +425,7 @@ function inspect(id) {
   items.forEach(it => it.node.classList.toggle("sel", it.f.id === id && it.kind === "frame"));
   const list = FRAMES.filter(x => x.page === f.page); const i = list.indexOf(f);
   panel.hidden = false;
-  panel.innerHTML = `<header><div><h2>${esc(f.title)}</h2><small>${esc(f.page)} · ${i + 1} of ${list.length}</small></div><button id="pClose" aria-label="Close">✕</button></header>
+  panel.innerHTML = `<header><div><h2>${esc(f.title)}</h2><small>${esc(f.page)} · ${i + 1} of ${list.length}</small></div><div class="hb"><button id="pFig" title="Copy this screen as editable layers, then paste into Figma (⌘C)">Copy for Figma</button><button id="pClose" aria-label="Close">✕</button></div></header>
   <div class="body"><div class="view" id="pView"></div>
   <dl><dt>What it shows</dt><dd>${esc(f.note || "—")}</dd><dt>Viewport</dt><dd>${f.vp === "d" ? "Desktop" : "Phone"} · ${f.width}px wide, ${f.height}px tall</dd>${f.route && f.route[0] === "#" ? `<dt>Route</dt><dd><code>${esc(f.route)}</code></dd>` : ""}${f.recipe ? `<dt>State</dt><dd>${esc(f.recipe)}</dd>` : ""}</dl></div>
   <footer><button id="pPrev">← Previous</button><button id="pNext">Next →</button></footer>`;
@@ -425,10 +433,43 @@ function inspect(id) {
   view.style.width = (f.width * sc) + "px";
   const holder = el("div", { style: `width:${f.width * sc}px;height:${Math.min(f.height, 4000) * sc}px;overflow:hidden` }); view.appendChild(holder);
   mountFrame(holder, f, sc, f.width, Math.min(f.height, 4000)); const vv = holder.querySelector("video"); if (vv) vv.controls = true; // play, pause and scrub in the inspector
+  $("#pFig").onclick = () => copyForFigma(id);
   $("#pClose").onclick = () => { panel.hidden = true; items.forEach(it => it.node.classList.remove("sel")); };
   $("#pPrev").onclick = () => inspect(list[(i - 1 + list.length) % list.length].id);
   $("#pNext").onclick = () => inspect(list[(i + 1) % list.length].id);
 }
+/*__FIGMA__*/
+function toast(msg, bad) {
+  let t = $("#toast"); if (!t) { t = el("div", { id: "toast", role: "status" }); document.body.appendChild(t); }
+  t.textContent = msg; t.className = "show" + (bad ? " bad" : ""); clearTimeout(toast.t); toast.t = setTimeout(() => { t.className = ""; }, 4500);
+}
+async function writeClipboard(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (e) {}
+  try { const ta = el("textarea", { style: "position:fixed;left:-9999px;top:0" }); ta.value = text; document.body.appendChild(ta); ta.select(); const ok = document.execCommand("copy"); ta.remove(); return ok; } catch (e) { return false; }
+}
+function copyDialog(svg, f) { // the browser blocked clipboard access: let the person copy it themselves
+  const d = el("div", { id: "cdlg" });
+  d.innerHTML = `<div class="card"><h3>Copy for Figma</h3><p>The browser did not allow automatic copying. Select all (⌘A / Ctrl+A), copy (⌘C / Ctrl+C), then paste into Figma (⌘V / Ctrl+V).</p><textarea readonly></textarea><div class="row"><button class="dl">Download .svg</button><button class="x">Close</button></div></div>`;
+  const ta = d.querySelector("textarea"); ta.value = svg;
+  d.querySelector(".x").onclick = () => d.remove();
+  d.querySelector(".dl").onclick = () => { const a = el("a", { href: URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })), download: (f.id || "frame") + ".svg" }); document.body.appendChild(a); a.click(); a.remove(); };
+  document.body.appendChild(d); ta.focus(); ta.select();
+}
+let copying = false;
+async function copyForFigma(id) {
+  const f = byId.get(id || currentId); if (!f || copying) return; copying = true;
+  toast("Preparing “" + f.title + "” for Figma…");
+  try {
+    const res = await frameToSvg(f);
+    if (await writeClipboard(res.svg)) toast(`Copied “${f.title}” (${res.layers} layers). In Figma press ⌘V / Ctrl+V.${res.fonts.length ? " Fonts: " + res.fonts.join(", ") + "." : ""}`);
+    else { document.querySelector("#toast")?.classList.remove("show"); copyDialog(res.svg, f); }
+  } catch (e) { toast("Could not export this frame: " + e.message, true); }
+  copying = false;
+}
+window.atlasFigmaSvg = id => frameToSvg(byId.get(id));
+document.addEventListener("keydown", e => {
+  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "c" && currentId && !panel.hidden && !String(getSelection()) && !/^(INPUT|TEXTAREA)$/.test((document.activeElement || {}).tagName)) { e.preventDefault(); copyForFigma(); }
+});
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !panel.hidden) { panel.hidden = true; items.forEach(it => it.node.classList.remove("sel")); } });
 world.addEventListener("click", e => { const n = e.target.closest(".flow-node"); if (n) { inspect(n.dataset.id); return; } const b = e.target.closest(".insp"); if (b) inspect(b.closest(".fr").dataset.id); });
 

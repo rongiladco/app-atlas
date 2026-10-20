@@ -97,6 +97,14 @@ node $ATLAS rebaseline <app>           # after editing the impact map ONLY. Neve
 - **Don't fake data that real users won't have**; do cover long text, empty data and the extremes.
 - A page of ~10–15 frames reads well; split big screens by state group, not by viewport.
 
+## Copy a frame to Figma
+
+Select a frame on the canvas (or open it in the inspector) and press **Copy for Figma** or ⌘C / Ctrl+C, then paste into Figma (⌘V). The clipboard gets SVG that Figma imports as **editable layers**: rectangles with fills, gradients, borders, radii and shadows, live text per line (real font, size, weight, colour, RTL right-aligned), images, inline icons as vectors, clips for overflow, transforms, named groups. If the browser blocks clipboard access, a dialog shows the SVG to copy by hand (or download).
+
+How: the frame is re-mounted 1:1 off-screen, entry animations are jumped to their end state, and the browser's own layout (`getBoundingClientRect` + computed styles) is written out as SVG — no CSS is re-implemented. Source: `engine/figma-export.js` (inlined into the canvas at build time).
+
+Limits, state them when asked: `::before` / `::after` content, inset shadows, CSS filters and blend modes, and `background-clip:text` are not carried over; text uses the app's fonts only if they are installed in Figma (the toast lists them); only the first outer shadow is exported; images are embedded per use, so image-heavy frames can be a few MB. Checked by rendering the exported SVG next to the original frame in Chromium; paste behaviour inside Figma itself is Figma's SVG importer, not re-tested on every release.
+
 ## Known limits (say so in the README, don't hide them)
 
 JS-only interactions inside a frame don't run (frames are markup; videos show motion). State needing a live backend/push is stubbed via `prepare`. Fonts that the dev server serves from the network must be embeddable or fall back to system fonts. The Artifact viewer blocks iframes, which is why frames are shadow roots with flattened CSS — see `references/lessons.md` before changing the engine.

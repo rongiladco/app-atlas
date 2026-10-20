@@ -7,6 +7,7 @@ The difference from a hand-made design file: **every frame is captured from the 
 - each scenario is hashed with the source files it depends on, so a code change marks exactly the frames it affects as `STALE`;
 - the app's routes are compared with the scenarios: a screen without a scenario is `UNCOVERED ROUTE`, a scenario for a deleted screen is `DEAD ROUTE`;
 - structure checks (orphan scenarios, broken flows, removed screens) and per-scenario content expectations;
+- **Copy for Figma**: select any frame (or press ⌘C / Ctrl+C) and paste into Figma as editable layers (rectangles, live text, vectors, images);
 - `atlas.mjs sync` captures only what changed, prunes what was removed, verifies, builds, and exits non-zero unless the atlas is current — easy to wire into a review gate or CI.
 
 ## Install
