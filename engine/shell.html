@@ -75,6 +75,7 @@ input[type=search]{font:inherit;color:inherit;background:var(--panel-2);border:1
 .fr.dim{opacity:.18}
 .fr.sel .box{outline:3px solid var(--accent)}
 .fr .scrolls{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font:11px var(--mono);padding:3px 7px;border-radius:99px;pointer-events:none}
+.fr .cap .figc{flex:none;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;min-height:0;padding:0 7px;font-size:12px;line-height:20px;cursor:pointer;margin-left:4px}
 .fr .cap .insp{flex:none;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;min-height:0;padding:0 7px;font-size:13px;line-height:20px;cursor:pointer}
 
 .panel .hb{display:flex;gap:6px;flex:none}
@@ -317,7 +318,7 @@ function buildPage(pageName, list, lede) {
     const n = el("div", { class: "fr", "data-id": f.id });
     n.style.cssText = `left:${x}px;top:${y}px;width:${b.w}px;height:${b.h}px`;
     n.innerHTML = `<div class="cap"><b>${esc(f.title)}</b><span>${f.kind === "video" ? "▶ " : ""}${f.width}×${f.height}</span></div><div class="box ${f.poster || f.kind === "img" ? "" : "ph"}" data-label="${esc(f.title)}" ${posterStyle(f)}></div>${b.scrolls ? '<div class="scrolls">scrolls ↕</div>' : ""}`;
-    n.querySelector(".cap").insertAdjacentHTML("beforeend", `<button class="insp" aria-label="Inspect ${esc(f.title)}" title="Inspect">⤢</button>`);
+    n.querySelector(".cap").insertAdjacentHTML("beforeend", `<button class="insp" aria-label="Inspect ${esc(f.title)}" title="Open in the inspector">⤢</button>${f.kind ? "" : `<button class="figc" aria-label="Copy ${esc(f.title)} for Figma" title="Copy for Figma, then paste in Figma">Fig</button>`}`);
     sec.appendChild(n);
     items.push({ f, node: n, box: n.querySelector(".box"), scale: 1, w: f.width, h: b.h, kind: "frame" });
     x += b.w + GAP; rowH = Math.max(rowH, b.h); maxX = Math.max(maxX, x - GAP);
@@ -372,7 +373,7 @@ function fit() {
   z = Math.max(ZMIN, Math.min(r.width / W, r.height / H)); tx = 20; ty = 20; apply();
 }
 let drag = null;
-stage.addEventListener("pointerdown", e => { if (e.target.closest(".fr") && !e.target.closest(".insp")) { drag = { x: e.clientX, y: e.clientY, tx, ty, moved: false, hit: e.target.closest(".fr"), id: e.pointerId }; } else { drag = { x: e.clientX, y: e.clientY, tx, ty, moved: false, id: e.pointerId }; } stage.classList.add("drag"); stage.setPointerCapture(e.pointerId); });
+stage.addEventListener("pointerdown", e => { if (e.target.closest(".insp, .figc")) return; /* buttons keep their own click: capturing the pointer would redirect it to the stage */ if (e.target.closest(".fr")) { drag = { x: e.clientX, y: e.clientY, tx, ty, moved: false, hit: e.target.closest(".fr"), id: e.pointerId }; } else { drag = { x: e.clientX, y: e.clientY, tx, ty, moved: false, id: e.pointerId }; } stage.classList.add("drag"); stage.setPointerCapture(e.pointerId); });
 stage.addEventListener("pointermove", e => { if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true; if (drag.moved) { tx = drag.tx + dx; ty = drag.ty + dy; apply(); } });
 const endDrag = e => { if (!drag) return; stage.classList.remove("drag"); if (!drag.moved && drag.hit) inspect(drag.hit.dataset.id); drag = null; };
 stage.addEventListener("pointerup", endDrag); stage.addEventListener("pointercancel", endDrag);
@@ -471,7 +472,7 @@ document.addEventListener("keydown", e => {
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "c" && currentId && !panel.hidden && !String(getSelection()) && !/^(INPUT|TEXTAREA)$/.test((document.activeElement || {}).tagName)) { e.preventDefault(); copyForFigma(); }
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !panel.hidden) { panel.hidden = true; items.forEach(it => it.node.classList.remove("sel")); } });
-world.addEventListener("click", e => { const n = e.target.closest(".flow-node"); if (n) { inspect(n.dataset.id); return; } const b = e.target.closest(".insp"); if (b) inspect(b.closest(".fr").dataset.id); });
+world.addEventListener("click", e => { const n = e.target.closest(".flow-node"); if (n) { inspect(n.dataset.id); return; } const b = e.target.closest(".insp"); if (b) { inspect(b.closest(".fr").dataset.id); return; } const c = e.target.closest(".figc"); if (c) copyForFigma(c.closest(".fr").dataset.id); });
 
 /* ---------- gallery view (phones, or by choice) ---------- */
 const gal = $("#gallery"); let galBuilt = false;
