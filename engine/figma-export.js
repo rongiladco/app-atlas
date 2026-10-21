@@ -151,11 +151,22 @@ async function frameToSvg(f) {
     fonts.add(famName(fam));
     const rtl = cs.direction === "rtl", ls = cs.letterSpacing !== "normal" ? parseFloat(cs.letterSpacing) : 0;
     const dec = /underline/.test(cs.textDecorationLine) ? "underline" : /line-through/.test(cs.textDecorationLine) ? "line-through" : "";
+    // text-shadow: one extra copy of the line per shadow (first listed is on top), offset, in the shadow colour; blurred ones get a blur filter
+    const shadows = cs.textShadow && cs.textShadow !== "none" ? splitTop(cs.textShadow).map(sh => {
+      const m = sh.match(/(rgba?\([^)]+\)|#[0-9a-f]{3,8}|color\([^)]+\)|[a-z]+\([^)]*\))/i), n = sh.replace(m ? m[0] : "", "").match(/-?[\d.]+/g) || [];
+      return m && n.length >= 2 ? { k: color(m[0]), dx: +n[0], dy: +n[1], blur: +(n[2] || 0) } : null;
+    }).filter(Boolean).reverse() : [];
+    const sw = parseFloat(cs.webkitTextStrokeWidth) || 0, sk = sw > 0 ? color(cs.webkitTextStrokeColor) : null;
+    const stroke = sk && sk.a > 0 ? ` stroke="${sk.c}" stroke-width="${sw}" stroke-linejoin="round"${/stroke/.test(cs.paintOrder) ? ' paint-order="stroke"' : ""}` : "";
     const emit = (s, rc) => {
       s = s.replace(/^\s+|\s+$/g, ""); if (!s) return;
-      const x = rtl ? rc.right : rc.left, y = rc.top + asc;
-      layers++;
-      out.push(`<text x="${r2(x - O.left)}" y="${r2(y - O.top)}" font-family="${X(fam)}" font-size="${size}" font-weight="${cs.fontWeight}"${cs.fontStyle !== "normal" ? ` font-style="${cs.fontStyle}"` : ""} fill="${col.c}"${col.a < 1 ? ` fill-opacity="${r2(col.a)}"` : ""}${ls ? ` letter-spacing="${r2(ls)}"` : ""}${dec ? ` text-decoration="${dec}"` : ""}${rtl ? ' text-anchor="end"' : ""} xml:space="preserve">${X(s)}</text>`);
+      const x = (rtl ? rc.right : rc.left) - O.left, y = rc.top + asc - O.top;
+      const mk = (dx, dy, c, a, extra, label) => `<text${label ? ` id="${label}"` : ""} x="${r2(x + dx)}" y="${r2(y + dy)}" font-family="${X(fam)}" font-size="${size}" font-weight="${cs.fontWeight}"${cs.fontStyle !== "normal" ? ` font-style="${cs.fontStyle}"` : ""} fill="${c}"${a < 1 ? ` fill-opacity="${r2(a)}"` : ""}${ls ? ` letter-spacing="${r2(ls)}"` : ""}${dec ? ` text-decoration="${dec}"` : ""}${rtl ? ' text-anchor="end"' : ""}${stroke}${extra || ""} xml:space="preserve">${X(s)}</text>`;
+      shadows.forEach((sh, n) => {
+        let f = ""; if (sh.blur > 0) { const id = "b" + ++uid; defs.push(`<filter id="${id}" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="${r2(sh.blur / 2)}"/></filter>`); f = ` filter="url(#${id})"`; }
+        layers++; out.push(mk(sh.dx, sh.dy, sh.k.c, sh.k.a, f, "text-shadow-" + (shadows.length - n)));
+      });
+      layers++; out.push(mk(0, 0, col.c, col.a, "", ""));
     };
     rg.selectNodeContents(node);
     const whole = [...rg.getClientRects()].filter(r => r.width > 0);
