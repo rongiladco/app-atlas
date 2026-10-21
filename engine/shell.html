@@ -75,8 +75,9 @@ input[type=search]{font:inherit;color:inherit;background:var(--panel-2);border:1
 .fr.dim{opacity:.18}
 .fr.sel .box{outline:3px solid var(--accent)}
 .fr .scrolls{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font:11px var(--mono);padding:3px 7px;border-radius:99px;pointer-events:none}
-.fr .cap .figc{flex:none;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;min-height:0;padding:0 7px;font-size:12px;line-height:20px;cursor:pointer;margin-left:4px}
-.fr .cap .insp{flex:none;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;min-height:0;padding:0 7px;font-size:13px;line-height:20px;cursor:pointer}
+.fr .cap .acts{flex:none;display:flex;gap:4px}
+.fr .cap .figc{flex:none;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;min-height:0;padding:0 6px;height:22px;display:inline-flex;align-items:center;cursor:pointer}
+.fr .cap .insp{flex:none;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;min-height:0;padding:0 7px;height:22px;font-size:13px;line-height:20px;cursor:pointer}
 
 .panel .hb{display:flex;gap:6px;flex:none}
 #toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);max-width:min(560px,92vw);background:var(--ink);color:var(--ws);padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:50}
@@ -318,7 +319,7 @@ function buildPage(pageName, list, lede) {
     const n = el("div", { class: "fr", "data-id": f.id });
     n.style.cssText = `left:${x}px;top:${y}px;width:${b.w}px;height:${b.h}px`;
     n.innerHTML = `<div class="cap"><b>${esc(f.title)}</b><span>${f.kind === "video" ? "▶ " : ""}${f.width}×${f.height}</span></div><div class="box ${f.poster || f.kind === "img" ? "" : "ph"}" data-label="${esc(f.title)}" ${posterStyle(f)}></div>${b.scrolls ? '<div class="scrolls">scrolls ↕</div>' : ""}`;
-    n.querySelector(".cap").insertAdjacentHTML("beforeend", `<button class="insp" aria-label="Inspect ${esc(f.title)}" title="Open in the inspector">⤢</button>${f.kind ? "" : `<button class="figc" aria-label="Copy ${esc(f.title)} for Figma" title="Copy for Figma, then paste in Figma">Fig</button>`}`);
+    n.querySelector(".cap").insertAdjacentHTML("beforeend", `<span class="acts"><button class="insp" aria-label="Inspect ${esc(f.title)}" title="Open in the inspector">⤢</button>${f.kind ? "" : `<button class="figc" aria-label="Copy ${esc(f.title)} for Figma" title="Copy for Figma, then paste in Figma"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.8"/><path d="M10.5 3.2V3.5a1.8 1.8 0 0 0-1.8-1.8H3.5A1.8 1.8 0 0 0 1.7 3.5v5.2a1.8 1.8 0 0 0 1.8 1.8h.3" stroke-linecap="round"/></svg></button>`}</span>`);
     sec.appendChild(n);
     items.push({ f, node: n, box: n.querySelector(".box"), scale: 1, w: f.width, h: b.h, kind: "frame" });
     x += b.w + GAP; rowH = Math.max(rowH, b.h); maxX = Math.max(maxX, x - GAP);
@@ -426,7 +427,7 @@ function inspect(id) {
   items.forEach(it => it.node.classList.toggle("sel", it.f.id === id && it.kind === "frame"));
   const list = FRAMES.filter(x => x.page === f.page); const i = list.indexOf(f);
   panel.hidden = false;
-  panel.innerHTML = `<header><div><h2>${esc(f.title)}</h2><small>${esc(f.page)} · ${i + 1} of ${list.length}</small></div><div class="hb"><button id="pFig" title="Copy this screen as editable layers, then paste into Figma (⌘C)">Copy for Figma</button><button id="pClose" aria-label="Close">✕</button></div></header>
+  panel.innerHTML = `<header><div><h2>${esc(f.title)}</h2><small>${esc(f.page)} · ${i + 1} of ${list.length}</small></div><div class="hb"><button id="pFig" title="Copy this screen as editable layers, then paste into Figma (⌘C)" aria-label="Copy for Figma"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" style="vertical-align:-2px;margin-inline-end:5px"><rect x="5.5" y="5.5" width="8" height="8" rx="1.8"/><path d="M10.5 3.2V3.5a1.8 1.8 0 0 0-1.8-1.8H3.5A1.8 1.8 0 0 0 1.7 3.5v5.2a1.8 1.8 0 0 0 1.8 1.8h.3" stroke-linecap="round"/></svg>Copy for Figma</button><button id="pClose" aria-label="Close">✕</button></div></header>
   <div class="body"><div class="view" id="pView"></div>
   <dl><dt>What it shows</dt><dd>${esc(f.note || "—")}</dd><dt>Viewport</dt><dd>${f.vp === "d" ? "Desktop" : "Phone"} · ${f.width}px wide, ${f.height}px tall</dd>${f.route && f.route[0] === "#" ? `<dt>Route</dt><dd><code>${esc(f.route)}</code></dd>` : ""}${f.recipe ? `<dt>State</dt><dd>${esc(f.recipe)}</dd>` : ""}</dl></div>
   <footer><button id="pPrev">← Previous</button><button id="pNext">Next →</button></footer>`;
